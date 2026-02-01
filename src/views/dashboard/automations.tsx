@@ -232,7 +232,7 @@ export function AutomationsPage() {
                             monzoAccounts
                           )}
                         </p>
-                        <div className="flex items-center gap-2 mt-2">
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
                           <Badge
                             variant={
                               automation.is_active ? "default" : "secondary"
@@ -243,6 +243,18 @@ export function AutomationsPage() {
                               ? `Weekly (${DAYS[automation.day_of_week ?? 0]})`
                               : `Monthly (day ${automation.day_of_month})`}
                           </Badge>
+                          {automation.next_run_at && (
+                            <span className="text-xs text-muted-foreground">
+                              Next:{" "}
+                              {new Date(
+                                automation.next_run_at
+                              ).toLocaleDateString("en-GB", {
+                                weekday: "short",
+                                day: "numeric",
+                                month: "short",
+                              })}
+                            </span>
+                          )}
                           {!automation.source_credit_card_id && (
                             <Badge variant="outline" className="text-xs">
                               Connect card to activate

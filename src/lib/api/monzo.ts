@@ -171,3 +171,36 @@ export async function fetchMonzoPots(
 
   return response.json();
 }
+
+export async function depositIntoMonzoPot(
+  accessToken: string,
+  potId: string,
+  sourceAccountId: string,
+  amountPence: number,
+  dedupeId: string
+): Promise<MonzoPot> {
+  const params = new URLSearchParams({
+    source_account_id: sourceAccountId,
+    amount: String(amountPence),
+    dedupe_id: dedupeId,
+  });
+
+  const response = await fetch(
+    `${MONZO_API_BASE}/pots/${potId}/deposit`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params,
+    }
+  );
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Monzo pot deposit failed: ${response.status} ${err}`);
+  }
+
+  return response.json();
+}

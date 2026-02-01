@@ -100,7 +100,7 @@ src/
 - **Phase 2** ✓: Monzo Integration - OAuth flow, accounts & pots display, reconnection countdown
 - **Phase 3** ✓: TrueLayer Integration - OAuth flow, credit cards display, wire to automations
 - **Phase 4** ✓: Automation Core - create rules, select pots, schedule (weekly/monthly)
-- **Phase 5**: Scheduled Transfers
+- **Phase 5** ✓: Scheduled Transfers - Monzo pot deposits, cron job, next_run_at
 - **Phase 6+**: Dashboard metrics, notifications, Stripe, PWA, polish
 
 ## License

@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Automation, CreateAutomationInput } from "@/types/automation";
+import { computeNextRunAt } from "@/lib/utils/nextRunAt";
 
 export function useAutomations() {
   const supabase = createClient();
@@ -34,6 +35,16 @@ export function useCreateAutomation() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      const dayOfWeek =
+        input.frequency === "weekly" ? input.day_of_week ?? 0 : null;
+      const dayOfMonth =
+        input.frequency === "monthly" ? input.day_of_month ?? 1 : null;
+      const nextRunAt = computeNextRunAt(
+        input.frequency,
+        dayOfWeek,
+        dayOfMonth
+      );
+
       const payload = {
         user_id: user.id,
         name: input.name,
@@ -41,8 +52,9 @@ export function useCreateAutomation() {
         destination_monzo_pot_id: input.destination_monzo_pot_id,
         amount: input.amount,
         frequency: input.frequency,
-        day_of_week: input.frequency === "weekly" ? input.day_of_week : null,
-        day_of_month: input.frequency === "monthly" ? input.day_of_month : null,
+        day_of_week: input.frequency === "weekly" ? dayOfWeek : null,
+        day_of_month: input.frequency === "monthly" ? dayOfMonth : null,
+        next_run_at: nextRunAt.toISOString(),
       };
 
       const { data, error } = await supabase
