@@ -85,8 +85,8 @@ src/
 
 - **Phase 1** ✓: Foundation - Next.js, Tailwind, shadcn/ui, theme system, landing page
 - **Phase 2** ✓: Monzo Integration - OAuth flow, accounts & pots display, reconnection countdown
-- **Phase 3**: TrueLayer Integration
-- **Phase 4**: Automation Core
+- **Phase 3**: TrueLayer Integration (credit cards)
+- **Phase 4** ✓: Automation Core - create rules, select pots, schedule (weekly/monthly)
 - **Phase 5**: Scheduled Transfers
 - **Phase 6+**: Dashboard metrics, notifications, Stripe, PWA, polish
 
