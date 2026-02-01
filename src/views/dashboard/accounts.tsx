@@ -99,12 +99,22 @@ export function AccountsPage() {
   }, [monzoPendingApproval, pendingId, refetch, pollRetryKey]);
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
-      <main className="flex-1 container px-4 py-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <h1 className="text-2xl font-bold">Accounts</h1>
-          <Button onClick={() => setConnectDialogOpen(true)}>
+      <main className="flex-1 container max-w-5xl mx-auto px-4 py-8 sm:py-10">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+              Accounts
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Connect and manage your bank accounts
+            </p>
+          </div>
+          <Button
+            onClick={() => setConnectDialogOpen(true)}
+            className="shrink-0"
+          >
             <Wallet className="h-4 w-4 mr-2" />
             Connect Monzo
           </Button>
@@ -116,8 +126,16 @@ export function AccountsPage() {
         />
 
         {monzoConnected && (
-          <div className="mb-4 p-4 rounded-lg bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/20">
-            Monzo account connected successfully!
+          <div className="mb-6 p-4 rounded-xl bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/20 flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500/20">
+              <Wallet className="h-5 w-5 text-green-600 dark:text-green-400" />
+            </div>
+            <div>
+              <p className="font-medium">Monzo connected successfully</p>
+              <p className="text-sm opacity-90">
+                Your accounts and pots are now synced
+              </p>
+            </div>
           </div>
         )}
 
@@ -179,18 +197,29 @@ export function AccountsPage() {
           </div>
         )}
 
-        <div className="space-y-8">
+        <div className="space-y-10">
           <section>
-            <h2 className="text-lg font-semibold mb-4">Monzo Accounts</h2>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-semibold">Monzo Accounts</h2>
+            </div>
             {isLoading ? (
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-5 md:grid-cols-2">
                 {[1, 2].map((i) => (
                   <Card key={i}>
-                    <CardContent className="pt-6">
-                      <div className="animate-pulse space-y-4">
-                        <div className="h-4 bg-muted rounded w-1/2" />
-                        <div className="h-8 bg-muted rounded w-1/3" />
-                        <div className="h-4 bg-muted rounded w-2/3" />
+                    <CardContent className="pt-6 pb-6">
+                      <div className="animate-pulse space-y-5">
+                        <div className="flex justify-between">
+                          <div className="flex gap-2">
+                            <div className="h-10 w-10 rounded-lg bg-muted" />
+                            <div className="space-y-2">
+                              <div className="h-4 bg-muted rounded w-24" />
+                              <div className="h-5 bg-muted rounded w-16" />
+                            </div>
+                          </div>
+                          <div className="h-8 bg-muted rounded w-20" />
+                        </div>
+                        <div className="h-10 bg-muted rounded-lg" />
+                        <div className="h-10 bg-muted rounded-lg" />
                       </div>
                     </CardContent>
                   </Card>
@@ -214,10 +243,17 @@ export function AccountsPage() {
                 </CardContent>
               </Card>
             ) : monzoAccounts.length === 0 ? (
-              <Card>
-                <CardContent className="pt-6">
-                  <p className="text-muted-foreground mb-4">
-                    Connect your Monzo account to view your accounts and pots.
+              <Card className="border-dashed">
+                <CardContent className="pt-12 pb-12 flex flex-col items-center justify-center text-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
+                    <Wallet className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="font-semibold text-lg mb-2">
+                    No Monzo accounts connected
+                  </h3>
+                  <p className="text-muted-foreground mb-6 max-w-sm">
+                    Connect your Monzo account to view balances, pots, and
+                    manage your finances in one place.
                   </p>
                   <Button onClick={() => setConnectDialogOpen(true)}>
                     <Wallet className="h-4 w-4 mr-2" />
@@ -226,7 +262,7 @@ export function AccountsPage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-5 md:grid-cols-2">
                 {monzoAccounts.map((account) => (
                   <MonzoAccountCard
                     key={account.id}
@@ -239,24 +275,31 @@ export function AccountsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-4">Credit Cards</h2>
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-muted-foreground mb-4">
-                  Connect your credit cards via TrueLayer. Coming in Phase 3.
-                </p>
-                <Button variant="outline" disabled>
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  Add Credit Card (Phase 3)
+            <h2 className="text-lg font-semibold mb-5">Credit Cards</h2>
+            <Card className="border-dashed opacity-75">
+              <CardContent className="pt-6 pb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted">
+                    <CreditCard className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="font-medium">Coming in Phase 3</p>
+                    <p className="text-sm text-muted-foreground">
+                      Connect credit cards via TrueLayer
+                    </p>
+                  </div>
+                </div>
+                <Button variant="outline" disabled className="shrink-0">
+                  Add Credit Card
                 </Button>
               </CardContent>
             </Card>
           </section>
         </div>
 
-        <div className="mt-6">
-          <Button asChild variant="outline">
-            <Link href="/dashboard">Back to Dashboard</Link>
+        <div className="mt-10 pt-6 border-t">
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/dashboard">← Back to Dashboard</Link>
           </Button>
         </div>
       </main>

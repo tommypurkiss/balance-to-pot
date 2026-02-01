@@ -47,7 +47,7 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <nav className="container flex h-16 items-center justify-between px-4">
+      <nav className="container mx-auto flex h-16 items-center justify-between px-4">
         <Link
           href="/"
           className="flex items-center gap-2 font-semibold text-xl hover:opacity-80 transition-opacity"
@@ -55,18 +55,20 @@ export function Navbar() {
           <span className="text-primary">PotSaver</span>
         </Link>
 
-        {/* Desktop navigation */}
-        <div className="hidden md:flex items-center gap-6">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </div>
+        {/* Desktop navigation - only show when logged out */}
+        {!user && (
+          <div className="hidden md:flex items-center gap-6">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
@@ -108,17 +110,18 @@ export function Navbar() {
       {/* Mobile menu */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t bg-background">
-          <div className="container flex flex-col gap-2 py-4 px-4">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="py-2 text-sm font-medium"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                {link.label}
-              </Link>
-            ))}
+          <div className="container mx-auto flex flex-col gap-2 py-4 px-4">
+            {!user &&
+              navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="py-2 text-sm font-medium"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              ))}
             {user ? (
               <>
                 <Link

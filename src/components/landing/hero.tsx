@@ -8,7 +8,7 @@ import { ArrowRight } from "lucide-react";
 export function Hero() {
   return (
     <section className="relative overflow-hidden py-20 md:py-32">
-      <div className="container px-4">
+      <div className="container mx-auto px-4">
         <motion.div
           className="mx-auto max-w-3xl text-center"
           initial={{ opacity: 0, y: 20 }}

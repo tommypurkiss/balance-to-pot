@@ -28,7 +28,7 @@ const steps = [
 export function HowItWorks() {
   return (
     <section id="how-it-works" className="py-20 md:py-28">
-      <div className="container px-4">
+      <div className="container mx-auto px-4">
         <motion.div
           className="text-center mb-16"
           initial={{ opacity: 0, y: 20 }}

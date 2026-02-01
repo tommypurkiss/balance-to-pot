@@ -7,7 +7,7 @@ export function DashboardPage() {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      <main className="flex-1 container px-4 py-8">
+      <main className="flex-1 container mx-auto max-w-5xl px-4 py-8">
         <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
         <Card>
           <CardHeader>
