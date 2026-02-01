@@ -23,19 +23,17 @@ export interface MonzoPot {
 
 export interface CreditCard {
   id: string;
-  user_id: string;
+  user_id?: string;
   provider_id: string;
   account_id: string;
-  provider_name: string;
-  card_name: string;
-  last_four_digits: string;
+  provider_name: string | null;
+  card_name: string | null;
+  last_four_digits: string | null;
   current_balance: number;
   available_credit: number;
   credit_limit: number;
   connected_at: string;
   last_synced: string | null;
-  reconnect_by: string;
-  days_until_reconnect: number;
+  reconnect_by: string | null;
   is_active: boolean;
-  is_supported: boolean;
 }

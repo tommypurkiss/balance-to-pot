@@ -7,8 +7,11 @@ import { Navbar } from "@/components/layout/navbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { MonzoAccountCard } from "@/components/accounts/monzo-account-card";
+import { CreditCardCard } from "@/components/accounts/credit-card-card";
 import { ConnectMonzoDialog } from "@/components/accounts/connect-monzo-dialog";
+import { ConnectCreditCardDialog } from "@/components/accounts/connect-credit-card-dialog";
 import { useMonzoAccounts } from "@/hooks/useAccounts";
+import { useCreditCards } from "@/hooks/useCreditCards";
 import { CreditCard, Loader2, Wallet } from "lucide-react";
 
 const POLL_INTERVAL_MS = 5000;
@@ -17,6 +20,7 @@ const POLL_TIMEOUT_MS = 90000; // 90 seconds
 export function AccountsPage() {
   const searchParams = useSearchParams();
   const [connectDialogOpen, setConnectDialogOpen] = useState(false);
+  const [connectCreditCardOpen, setConnectCreditCardOpen] = useState(false);
   const [pendingTimedOut, setPendingTimedOut] = useState(false);
   const [pollRetryKey, setPollRetryKey] = useState(0);
   const pollStartRef = useRef<number | null>(null);
@@ -26,19 +30,37 @@ export function AccountsPage() {
     error,
     refetch,
   } = useMonzoAccounts();
+  const {
+    data: creditCards = [],
+    isLoading: creditCardsLoading,
+    refetch: refetchCreditCards,
+  } = useCreditCards();
 
   const monzoConnected = searchParams?.get("monzo") === "connected";
+  const truelayerConnected = searchParams?.get("truelayer") === "connected";
   const monzoPendingApproval =
     searchParams?.get("monzo") === "pending_approval";
   const pendingId = searchParams?.get("pending_id");
   const errorParam = searchParams?.get("error");
 
   useEffect(() => {
-    if (monzoConnected || (errorParam && !monzoPendingApproval)) {
+    if (
+      monzoConnected ||
+      truelayerConnected ||
+      (errorParam && !monzoPendingApproval)
+    ) {
       refetch();
+      refetchCreditCards();
       window.history.replaceState({}, "", "/dashboard/accounts");
     }
-  }, [monzoConnected, errorParam, monzoPendingApproval, refetch]);
+  }, [
+    monzoConnected,
+    truelayerConnected,
+    errorParam,
+    monzoPendingApproval,
+    refetch,
+    refetchCreditCards,
+  ]);
 
   useEffect(() => {
     if (!monzoPendingApproval || !pendingId) return;
@@ -111,18 +133,28 @@ export function AccountsPage() {
               Connect and manage your bank accounts
             </p>
           </div>
-          <Button
-            onClick={() => setConnectDialogOpen(true)}
-            className="shrink-0"
-          >
-            <Wallet className="h-4 w-4 mr-2" />
-            Connect Monzo
-          </Button>
+          <div className="flex gap-2 shrink-0">
+            <Button onClick={() => setConnectDialogOpen(true)}>
+              <Wallet className="h-4 w-4 mr-2" />
+              Connect Monzo
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setConnectCreditCardOpen(true)}
+            >
+              <CreditCard className="h-4 w-4 mr-2" />
+              Connect Credit Card
+            </Button>
+          </div>
         </div>
 
         <ConnectMonzoDialog
           open={connectDialogOpen}
           onOpenChange={setConnectDialogOpen}
+        />
+        <ConnectCreditCardDialog
+          open={connectCreditCardOpen}
+          onOpenChange={setConnectCreditCardOpen}
         />
 
         {monzoConnected && (
@@ -134,6 +166,20 @@ export function AccountsPage() {
               <p className="font-medium">Monzo connected successfully</p>
               <p className="text-sm opacity-90">
                 Your accounts and pots are now synced
+              </p>
+            </div>
+          </div>
+        )}
+
+        {truelayerConnected && (
+          <div className="mb-6 p-4 rounded-xl bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/20 flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500/20">
+              <CreditCard className="h-5 w-5 text-green-600 dark:text-green-400" />
+            </div>
+            <div>
+              <p className="font-medium">Credit card connected successfully</p>
+              <p className="text-sm opacity-90">
+                Your credit card balance is now synced
               </p>
             </div>
           </div>
@@ -275,25 +321,62 @@ export function AccountsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-5">Credit Cards</h2>
-            <Card className="border-dashed opacity-75">
-              <CardContent className="pt-6 pb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted">
-                    <CreditCard className="h-6 w-6 text-muted-foreground" />
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-semibold">Credit Cards</h2>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConnectCreditCardOpen(true)}
+              >
+                <CreditCard className="h-4 w-4 mr-2" />
+                Add Credit Card
+              </Button>
+            </div>
+            {creditCardsLoading ? (
+              <div className="grid gap-5 md:grid-cols-2">
+                {[1].map((i) => (
+                  <Card key={i}>
+                    <CardContent className="pt-6 pb-6">
+                      <div className="animate-pulse space-y-5">
+                        <div className="flex justify-between">
+                          <div className="h-10 w-10 rounded-lg bg-muted" />
+                          <div className="h-8 bg-muted rounded w-20" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : creditCards.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="pt-6 pb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted">
+                      <CreditCard className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="font-medium">No credit cards connected</p>
+                      <p className="text-sm text-muted-foreground">
+                        Connect credit cards via TrueLayer to track balances
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">Coming in Phase 3</p>
-                    <p className="text-sm text-muted-foreground">
-                      Connect credit cards via TrueLayer
-                    </p>
-                  </div>
-                </div>
-                <Button variant="outline" disabled className="shrink-0">
-                  Add Credit Card
-                </Button>
-              </CardContent>
-            </Card>
+                  <Button
+                    variant="outline"
+                    onClick={() => setConnectCreditCardOpen(true)}
+                    className="shrink-0"
+                  >
+                    Connect Credit Card
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-5 md:grid-cols-2">
+                {creditCards.map((card) => (
+                  <CreditCardCard key={card.id} card={card} />
+                ))}
+              </div>
+            )}
           </section>
         </div>
 

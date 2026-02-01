@@ -13,6 +13,7 @@ import {
   useDeleteAutomation,
 } from "@/hooks/useAutomations";
 import { useMonzoAccounts } from "@/hooks/useAccounts";
+import { useCreditCards } from "@/hooks/useCreditCards";
 import { formatCurrency } from "@/lib/utils/formatCurrency";
 import type { MonzoPot } from "@/types/account";
 import type { CreateAutomationInput } from "@/types/automation";
@@ -40,12 +41,28 @@ function getPotName(
   return "Unknown pot";
 }
 
+function getCardName(
+  cardId: string | null,
+  creditCards: {
+    id: string;
+    card_name: string | null;
+    last_four_digits: string | null;
+  }[]
+): string {
+  if (!cardId) return "No card selected";
+  const card = creditCards.find((c) => c.id === cardId);
+  return card
+    ? card.card_name || `•••• ${card.last_four_digits ?? "****"}`
+    : "Unknown card";
+}
+
 export function AutomationsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState<
     CreateAutomationInput & { amountPounds: string }
   >({
     name: "",
+    source_credit_card_id: null,
     destination_monzo_pot_id: "",
     amount: 0,
     amountPounds: "",
@@ -55,6 +72,7 @@ export function AutomationsPage() {
 
   const { data: automations = [], isLoading, error } = useAutomations();
   const { data: monzoAccounts = [] } = useMonzoAccounts();
+  const { data: creditCards = [] } = useCreditCards();
   const createMutation = useCreateAutomation();
   const toggleMutation = useToggleAutomation();
   const deleteMutation = useDeleteAutomation();
@@ -73,6 +91,7 @@ export function AutomationsPage() {
     try {
       await createMutation.mutateAsync({
         name: form.name,
+        source_credit_card_id: form.source_credit_card_id || null,
         destination_monzo_pot_id: form.destination_monzo_pot_id,
         amount: amountPennies,
         frequency: form.frequency,
@@ -83,6 +102,7 @@ export function AutomationsPage() {
       setCreateOpen(false);
       setForm({
         name: "",
+        source_credit_card_id: null,
         destination_monzo_pot_id: "",
         amount: 0,
         amountPounds: "",
@@ -202,7 +222,11 @@ export function AutomationsPage() {
                       <div>
                         <h3 className="font-semibold">{automation.name}</h3>
                         <p className="text-sm text-muted-foreground mt-0.5">
-                          {formatCurrency(automation.amount)} →{" "}
+                          {getCardName(
+                            automation.source_credit_card_id,
+                            creditCards
+                          )}{" "}
+                          → {formatCurrency(automation.amount)} →{" "}
                           {getPotName(
                             automation.destination_monzo_pot_id,
                             monzoAccounts
@@ -271,7 +295,6 @@ export function AutomationsPage() {
             <DialogTitle>Create automation</DialogTitle>
             <DialogDescription>
               Transfer money from a credit card to a Monzo pot on a schedule.
-              Credit card connection coming in Phase 3.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreate} className="space-y-4">
@@ -286,6 +309,31 @@ export function AutomationsPage() {
                 }
                 required
               />
+            </div>
+            <div>
+              <Label htmlFor="source">Source credit card (optional)</Label>
+              <select
+                id="source"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-2"
+                value={form.source_credit_card_id ?? ""}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    source_credit_card_id: e.target.value
+                      ? e.target.value
+                      : null,
+                  }))
+                }
+              >
+                <option value="">No card (connect later)</option>
+                {creditCards.map((card) => (
+                  <option key={card.id} value={card.id}>
+                    {card.card_name ||
+                      `•••• ${card.last_four_digits ?? "****"}`}{" "}
+                    ({formatCurrency(card.current_balance)})
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <Label htmlFor="destination">Destination pot</Label>

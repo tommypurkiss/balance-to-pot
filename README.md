@@ -35,6 +35,11 @@ cp .env.example .env.local
 - Monzo developer credentials from [developers.monzo.com](https://developers.monzo.com)
 - `MONZO_REDIRECT_URI` must match your Monzo app config (e.g. `http://localhost:3000/api/auth/monzo/callback`)
 
+**Phase 3 (TrueLayer) requires:**
+
+- TrueLayer credentials from [console.truelayer.com](https://console.truelayer.com)
+- `TRUELAYER_REDIRECT_URI` must match your TrueLayer app config (e.g. `http://localhost:3000/api/auth/truelayer/callback`)
+
 ### Development
 
 ```bash
@@ -85,7 +90,7 @@ src/
 
 - **Phase 1** ✓: Foundation - Next.js, Tailwind, shadcn/ui, theme system, landing page
 - **Phase 2** ✓: Monzo Integration - OAuth flow, accounts & pots display, reconnection countdown
-- **Phase 3**: TrueLayer Integration (credit cards)
+- **Phase 3** ✓: TrueLayer Integration - OAuth flow, credit cards display, wire to automations
 - **Phase 4** ✓: Automation Core - create rules, select pots, schedule (weekly/monthly)
 - **Phase 5**: Scheduled Transfers
 - **Phase 6+**: Dashboard metrics, notifications, Stripe, PWA, polish
