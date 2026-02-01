@@ -76,10 +76,16 @@ export async function exchangeTrueLayerCode(
 
   if (!response.ok) {
     const error = await response.text();
+    console.error("[TrueLayer] Token exchange failed:", {
+      status: response.status,
+      body: error.slice(0, 300),
+    });
     throw new Error(`TrueLayer token exchange failed: ${error}`);
   }
 
-  return response.json();
+  const tokens = await response.json();
+  console.log("[TrueLayer] Token exchange success");
+  return tokens;
 }
 
 export async function refreshTrueLayerToken(
@@ -111,19 +117,46 @@ export async function refreshTrueLayerToken(
   return response.json();
 }
 
+export interface TrueLayerCardsResult {
+  cards: TrueLayerCard[];
+  rawResponse: unknown;
+}
+
 export async function fetchTrueLayerCards(
   accessToken: string
-): Promise<TrueLayerCard[]> {
+): Promise<TrueLayerCardsResult> {
   const response = await fetch(`${TRUELAYER_API_BASE}/data/v1/cards`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
+  const data = await response.json().catch(() => ({}));
+
   if (!response.ok) {
-    throw new Error(`Failed to fetch TrueLayer cards: ${response.statusText}`);
+    const body = typeof data === "object" ? JSON.stringify(data) : String(data);
+    const errMsg =
+      (typeof data === "object" && data && "error" in data
+        ? String((data as { error?: string }).error)
+        : null) || response.statusText;
+    console.error("[TrueLayer] Cards fetch failed:", {
+      status: response.status,
+      statusText: response.statusText,
+      body: body.slice(0, 500),
+    });
+    throw new Error(`Failed to fetch TrueLayer cards: ${response.status} ${errMsg}`);
   }
 
-  const data = await response.json();
-  return data.results ?? data ?? [];
+  const cards = Array.isArray(data) ? data : (data as { results?: unknown[] }).results ?? data ?? [];
+  const cardsArray = Array.isArray(cards) ? cards : [];
+
+  if (!Array.isArray(cards)) {
+    console.error("[TrueLayer] Unexpected cards response shape:", {
+      keys: typeof data === "object" ? Object.keys(data as object) : "not-object",
+      sample: JSON.stringify(data).slice(0, 300),
+    });
+  }
+
+  console.log("[TrueLayer] Fetched cards:", cardsArray.length, "card(s)");
+  return { cards: cardsArray, rawResponse: data };
 }
 
 export async function fetchTrueLayerCardBalance(

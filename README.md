@@ -40,6 +40,14 @@ cp .env.example .env.local
 - TrueLayer credentials from [console.truelayer.com](https://console.truelayer.com)
 - `TRUELAYER_REDIRECT_URI` must match your TrueLayer app config (e.g. `http://localhost:3000/api/auth/truelayer/callback`)
 
+**TrueLayer Console setup checklist:**
+
+1. **Application** – Create an app in [TrueLayer Console](https://console.truelayer.com) and copy Client ID & Client Secret.
+2. **Redirect URI** – Add your callback URL exactly (e.g. `http://localhost:3000/api/auth/truelayer/callback` for local dev). Must match `TRUELAYER_REDIRECT_URI` in `.env.local`.
+3. **Products** – Ensure the **Cards** product is enabled for your app (Console → Your App → Products).
+4. **Environment** – Use Sandbox for testing (mock data) or Live for real cards. Credentials differ per environment.
+5. **Provider types** – The app uses `enable_open_banking_providers: true` and `enable_credentials_sharing_providers: false`. Some credit card providers (e.g. Amex, Barclaycard) use credentials sharing; if your bank doesn’t appear, try setting `enable_credentials_sharing_providers` to `true` in `src/lib/api/truelayer.ts`.
+
 ### Development
 
 ```bash

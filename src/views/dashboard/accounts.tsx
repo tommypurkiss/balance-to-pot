@@ -42,6 +42,24 @@ export function AccountsPage() {
     searchParams?.get("monzo") === "pending_approval";
   const pendingId = searchParams?.get("pending_id");
   const errorParam = searchParams?.get("error");
+  const truelayerDebugParam = searchParams?.get("truelayer_debug");
+  const [truelayerDebugData, setTruelayerDebugData] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
+
+  useEffect(() => {
+    if (truelayerDebugParam) {
+      try {
+        const decoded = JSON.parse(
+          atob(truelayerDebugParam.replace(/-/g, "+").replace(/_/g, "/"))
+        ) as Record<string, unknown>;
+        setTruelayerDebugData(decoded);
+      } catch {
+        setTruelayerDebugData({ error: "Failed to decode debug data" });
+      }
+    }
+  }, [truelayerDebugParam]);
 
   useEffect(() => {
     if (
@@ -185,6 +203,24 @@ export function AccountsPage() {
           </div>
         )}
 
+        {truelayerDebugData && (
+          <div className="mb-6 p-4 rounded-xl bg-slate-500/10 dark:bg-slate-600/10 border border-slate-500/20 dark:border-slate-600/20">
+            <div className="flex items-center justify-between mb-2">
+              <p className="font-medium">TrueLayer debug (dev only)</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setTruelayerDebugData(null)}
+              >
+                Dismiss
+              </Button>
+            </div>
+            <pre className="text-xs overflow-auto max-h-64 p-3 rounded bg-slate-900/50 text-slate-100 font-mono">
+              {JSON.stringify(truelayerDebugData, null, 2)}
+            </pre>
+          </div>
+        )}
+
         {monzoPendingApproval && pendingId && !pendingTimedOut && (
           <div className="mb-4 p-4 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
             <div className="flex items-center gap-3">
@@ -239,7 +275,16 @@ export function AccountsPage() {
 
         {errorParam && errorParam !== "monzo_pending_approval" && (
           <div className="mb-4 p-4 rounded-lg bg-destructive/10 text-destructive border border-destructive/20">
-            Connection failed: {decodeURIComponent(errorParam as string)}
+            <p className="font-medium">Connection failed</p>
+            <p className="text-sm mt-1">
+              {errorParam === "access_denied"
+                ? "You declined access. Try again when you're ready to connect."
+                : errorParam === "invalid_state"
+                ? "Session expired. Please try connecting again."
+                : errorParam === "missing_params"
+                ? "Invalid callback. Please try connecting again."
+                : decodeURIComponent(errorParam as string)}
+            </p>
           </div>
         )}
 

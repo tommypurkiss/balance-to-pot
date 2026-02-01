@@ -16,7 +16,14 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state");
   const error = searchParams.get("error");
 
+  console.log("[TrueLayer callback] Received:", {
+    hasCode: !!code,
+    hasState: !!state,
+    error: error ?? null,
+  });
+
   if (error) {
+    console.log("[TrueLayer callback] OAuth error from TrueLayer:", error);
     return NextResponse.redirect(
       new URL(
         `/dashboard/accounts?error=${encodeURIComponent(error)}`,
@@ -26,6 +33,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (!code || !state) {
+    console.warn("[TrueLayer callback] Missing code or state");
     return NextResponse.redirect(
       new URL("/dashboard/accounts?error=missing_params", APP_URL)
     );
@@ -36,6 +44,11 @@ export async function GET(request: NextRequest) {
   const userId = cookieStore.get("truelayer_oauth_user")?.value;
 
   if (!storedState || state !== storedState || !userId) {
+    console.warn("[TrueLayer callback] Invalid state or missing user:", {
+      hasStoredState: !!storedState,
+      stateMatch: state === storedState,
+      hasUserId: !!userId,
+    });
     return NextResponse.redirect(
       new URL("/dashboard/accounts?error=invalid_state", APP_URL)
     );
@@ -49,6 +62,7 @@ export async function GET(request: NextRequest) {
     `${APP_URL}/api/auth/truelayer/callback`;
 
   try {
+    console.log("[TrueLayer callback] Exchanging code for tokens...");
     const tokens = await exchangeTrueLayerCode(code, redirectUri);
     const accessToken = tokens.access_token;
     const refreshToken = tokens.refresh_token;
@@ -57,7 +71,9 @@ export async function GET(request: NextRequest) {
       throw new Error("No refresh token - ensure offline_access scope");
     }
 
-    const cards = await fetchTrueLayerCards(accessToken);
+    console.log("[TrueLayer callback] Fetching cards...");
+    const { cards, rawResponse } = await fetchTrueLayerCards(accessToken);
+    console.log("[TrueLayer callback] Storing", cards.length, "card(s)");
     const reconnectBy = getReconnectByDate();
     const supabase = createAdminClient();
 
@@ -72,9 +88,10 @@ export async function GET(request: NextRequest) {
         // Card might not support balance
       }
 
-      const currentBalance = balanceData.current ?? 0;
-      const availableCredit = balanceData.available ?? 0;
-      const creditLimit = balanceData.credit_limit ?? 0;
+      // TrueLayer returns amounts in pounds; we store in pence (like Monzo) for formatCurrency
+      const currentBalance = Math.round(Number(balanceData.current ?? 0) * 100);
+      const availableCredit = Math.round(Number(balanceData.available ?? 0) * 100);
+      const creditLimit = Math.round(Number(balanceData.credit_limit ?? 0) * 100);
 
       const cardName =
         card.display_name ||
@@ -90,7 +107,7 @@ export async function GET(request: NextRequest) {
         .single();
 
       if (existing) {
-        await supabase
+        const { error: updateError } = await supabase
           .from("credit_cards")
           .update({
             access_token: accessToken,
@@ -109,8 +126,12 @@ export async function GET(request: NextRequest) {
             is_active: true,
           })
           .eq("id", existing.id);
+        if (updateError) {
+          console.error("[TrueLayer callback] Supabase update error:", updateError);
+          throw new Error(`Failed to update card: ${updateError.message}`);
+        }
       } else {
-        await supabase.from("credit_cards").insert({
+        const { error: insertError } = await supabase.from("credit_cards").insert({
           user_id: userId,
           provider_id: card.provider?.provider_id ?? "truelayer",
           account_id: card.account_id,
@@ -128,19 +149,71 @@ export async function GET(request: NextRequest) {
           reconnect_by: reconnectBy.toISOString().split("T")[0],
           last_synced: new Date().toISOString(),
         });
+        if (insertError) {
+          console.error("[TrueLayer callback] Supabase insert error:", insertError);
+          throw new Error(`Failed to store card: ${insertError.message}`);
+        }
       }
     }
 
-    return NextResponse.redirect(
-      new URL("/dashboard/accounts?truelayer=connected", APP_URL)
-    );
+    console.log("[TrueLayer callback] Success, redirecting to accounts");
+
+    const isDev = process.env.NODE_ENV === "development";
+    const rawObj =
+      typeof rawResponse === "object" && rawResponse !== null
+        ? (rawResponse as Record<string, unknown>)
+        : null;
+    const debugPayload: Record<string, unknown> = {
+      tokenReceived: !!accessToken,
+      cardsCount: cards.length,
+      rawResponseKeys: rawObj ? Object.keys(rawObj) : ["(non-object)"],
+      rawResponseSample: rawObj
+        ? JSON.stringify(rawObj).slice(0, 1500)
+        : String(rawResponse),
+      firstCardKeys:
+        cards[0] && typeof cards[0] === "object"
+          ? Object.keys(cards[0] as object)
+          : [],
+      config: {
+        redirectUri: redirectUri.replace(/\/[^/]+$/, "/***"),
+        hasClientId: !!process.env.TRUELAYER_CLIENT_ID,
+        hasClientSecret: !!process.env.TRUELAYER_CLIENT_SECRET,
+      },
+    };
+
+    const redirectUrl = new URL("/dashboard/accounts", APP_URL);
+    redirectUrl.searchParams.set("truelayer", "connected");
+    if (isDev) {
+      const encoded = Buffer.from(JSON.stringify(debugPayload)).toString(
+        "base64url"
+      );
+      if (encoded.length < 1800) {
+        redirectUrl.searchParams.set("truelayer_debug", encoded);
+      }
+    }
+
+    return NextResponse.redirect(redirectUrl);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.redirect(
-      new URL(
-        `/dashboard/accounts?error=${encodeURIComponent(message)}`,
-        APP_URL
-      )
-    );
+    console.error("[TrueLayer callback] Error:", err);
+    const redirectUrl = new URL("/dashboard/accounts", APP_URL);
+    redirectUrl.searchParams.set("error", message);
+    if (process.env.NODE_ENV === "development") {
+      redirectUrl.searchParams.set(
+        "truelayer_debug",
+        Buffer.from(
+          JSON.stringify({
+            error: message,
+            tokenReceived: false,
+            cardsCount: 0,
+            config: {
+              hasClientId: !!process.env.TRUELAYER_CLIENT_ID,
+              hasClientSecret: !!process.env.TRUELAYER_CLIENT_SECRET,
+            },
+          })
+        ).toString("base64url")
+      );
+    }
+    return NextResponse.redirect(redirectUrl);
   }
 }
