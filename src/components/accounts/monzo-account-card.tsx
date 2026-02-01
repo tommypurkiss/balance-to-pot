@@ -13,9 +13,13 @@ import { RefreshCw, Link2 } from "lucide-react";
 
 interface MonzoAccountCardProps {
   account: MonzoAccount & { monzo_pots?: MonzoPot[] };
+  onReconnect?: () => void;
 }
 
-export function MonzoAccountCard({ account }: MonzoAccountCardProps) {
+export function MonzoAccountCard({
+  account,
+  onReconnect,
+}: MonzoAccountCardProps) {
   const daysUntilReconnect = getDaysUntilReconnection(account.reconnect_by);
   const reconnectStatus = getReconnectionStatus(daysUntilReconnect);
 
@@ -74,14 +78,20 @@ export function MonzoAccountCard({ account }: MonzoAccountCardProps) {
         )}
 
         <div className="flex gap-2">
-          {daysUntilReconnect <= 10 && (
-            <Button variant="outline" size="sm" asChild>
-              <a href="/api/auth/monzo/connect">
+          {daysUntilReconnect <= 10 &&
+            (onReconnect ? (
+              <Button variant="outline" size="sm" onClick={onReconnect}>
                 <Link2 className="h-4 w-4 mr-1" />
                 Reconnect
-              </a>
-            </Button>
-          )}
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" asChild>
+                <a href="/api/auth/monzo/connect">
+                  <Link2 className="h-4 w-4 mr-1" />
+                  Reconnect
+                </a>
+              </Button>
+            ))}
           <Button variant="ghost" size="sm" disabled title="Sync coming soon">
             <RefreshCw className="h-4 w-4 mr-1" />
             Sync Now

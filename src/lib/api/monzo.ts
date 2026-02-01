@@ -113,12 +113,25 @@ export async function refreshMonzoToken(
   return response.json();
 }
 
+export class MonzoForbiddenError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "MonzoForbiddenError";
+  }
+}
+
 export async function fetchMonzoAccounts(
   accessToken: string
 ): Promise<{ accounts: MonzoAccount[] }> {
   const response = await fetch(`${MONZO_API_BASE}/accounts`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
+
+  if (response.status === 403) {
+    throw new MonzoForbiddenError(
+      "Access token has no permissions yet. The user must approve the connection in their Monzo app."
+    );
+  }
 
   if (!response.ok) {
     throw new Error(`Failed to fetch Monzo accounts: ${response.statusText}`);

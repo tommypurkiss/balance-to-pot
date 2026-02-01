@@ -3,11 +3,10 @@ import { cookies } from "next/headers";
 import {
   exchangeMonzoCode,
   fetchMonzoAccounts,
-  fetchMonzoBalance,
-  fetchMonzoPots,
+  MonzoForbiddenError,
 } from "@/lib/api/monzo";
-import { createClient } from "@/lib/supabase/server";
-import { getReconnectByDate } from "@/lib/utils/reconnection";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { syncMonzoToDb } from "@/lib/monzo/sync";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
@@ -17,14 +16,17 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state");
   const error = searchParams.get("error");
 
+  console.log("[Monzo callback] Received:", { hasCode: !!code, hasState: !!state, error });
+
   if (error) {
-    console.error("Monzo OAuth error:", error);
+    console.error("[Monzo callback] OAuth error:", error);
     return NextResponse.redirect(
       new URL(`/dashboard/accounts?error=${encodeURIComponent(error)}`, APP_URL)
     );
   }
 
   if (!code || !state) {
+    console.error("[Monzo callback] Missing code or state");
     return NextResponse.redirect(
       new URL("/dashboard/accounts?error=missing_params", APP_URL)
     );
@@ -34,7 +36,15 @@ export async function GET(request: NextRequest) {
   const storedState = cookieStore.get("monzo_oauth_state")?.value;
   const userId = cookieStore.get("monzo_oauth_user")?.value;
 
+  console.log("[Monzo callback] Cookies:", {
+    hasStoredState: !!storedState,
+    stateMatch: state === storedState,
+    hasUserId: !!userId,
+    userId: userId?.slice(0, 8) + "...",
+  });
+
   if (!storedState || state !== storedState || !userId) {
+    console.error("[Monzo callback] Invalid state or missing userId");
     return NextResponse.redirect(
       new URL("/dashboard/accounts?error=invalid_state", APP_URL)
     );
@@ -44,9 +54,13 @@ export async function GET(request: NextRequest) {
   cookieStore.delete("monzo_oauth_state");
   cookieStore.delete("monzo_oauth_user");
 
-  const redirectUri = `${APP_URL}/api/auth/monzo/callback`;
+  // Must match exactly what was sent to Monzo in the auth request (MONZO_REDIRECT_URI)
+  const redirectUri =
+    process.env.MONZO_REDIRECT_URI ||
+    `${APP_URL}/api/auth/monzo/callback`;
 
   try {
+    console.log("[Monzo callback] Exchanging code for tokens...");
     const tokens = await exchangeMonzoCode(code, redirectUri);
     const accessToken = tokens.access_token;
     const refreshToken = tokens.refresh_token;
@@ -54,128 +68,68 @@ export async function GET(request: NextRequest) {
     if (!refreshToken) {
       throw new Error("No refresh token - ensure Monzo client is confidential");
     }
+    console.log("[Monzo callback] Token exchange success");
 
-    const { accounts } = await fetchMonzoAccounts(accessToken);
-    const reconnectBy = getReconnectByDate();
-
-    const supabase = await createClient();
-
-    for (const account of accounts) {
-
-      const balanceData = await fetchMonzoBalance(
-        accessToken,
-        account.id
-      ).catch(() => null);
-
-      const balance = balanceData?.balance ?? 0;
-
-      const { data: existingAccount } = await supabase
-        .from("monzo_accounts")
-        .select("id")
-        .eq("account_id", account.id)
-        .eq("user_id", userId)
-        .single();
-
-      const accountType = account.type === "uk_retail" ? "current" : account.type === "uk_retail_joint" ? "current" : "other";
-      const accountName = account.description || `${accountType} Account`;
-
-      if (existingAccount) {
-        await supabase
-          .from("monzo_accounts")
-          .update({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-            token_expiry: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-            balance,
-            account_name: accountName,
-            account_type: accountType,
-            reconnect_by: reconnectBy.toISOString().split("T")[0],
-            last_synced: new Date().toISOString(),
-            is_active: true,
-          })
-          .eq("id", existingAccount.id);
-
-        const { pots } = await fetchMonzoPots(accessToken, account.id).catch(
-          () => ({ pots: [] })
-        );
-
-        for (const pot of pots) {
-          if (pot.deleted) continue;
-
-          await supabase.from("monzo_pots").upsert(
-            {
-              monzo_account_id: existingAccount.id,
-              pot_id: pot.id,
-              pot_name: pot.name,
-              balance: pot.balance,
-              last_synced: new Date().toISOString(),
-            },
-            { onConflict: "pot_id" }
-          );
-        }
-      } else {
-        const { data: newAccount, error: insertError } = await supabase
-          .from("monzo_accounts")
+    let accounts;
+    try {
+      const result = await fetchMonzoAccounts(accessToken);
+      accounts = result.accounts;
+    } catch (err) {
+      if (err instanceof MonzoForbiddenError) {
+        console.log("[Monzo callback] 403 - storing tokens for pending approval flow");
+        const supabase = createAdminClient();
+        const { data: pending, error: insertError } = await supabase
+          .from("monzo_pending_approvals")
           .insert({
             user_id: userId,
-            account_id: account.id,
-            account_name: accountName,
-            account_type: accountType,
-            balance,
             access_token: accessToken,
             refresh_token: refreshToken,
             token_expiry: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-            reconnect_by: reconnectBy.toISOString().split("T")[0],
-            last_synced: new Date().toISOString(),
           })
           .select("id")
           .single();
 
         if (insertError) {
-          console.error("Failed to insert Monzo account:", insertError);
-          continue;
-        }
-
-        const { pots } = await fetchMonzoPots(accessToken, account.id).catch(
-          () => ({ pots: [] })
-        );
-
-        for (const pot of pots) {
-          if (pot.deleted) continue;
-
-          await supabase.from("monzo_pots").upsert(
-            {
-              monzo_account_id: newAccount.id,
-              pot_id: pot.id,
-              pot_name: pot.name,
-              balance: pot.balance,
-              last_synced: new Date().toISOString(),
-            },
-            { onConflict: "pot_id" }
+          console.error("[Monzo callback] Failed to store pending:", insertError);
+          return NextResponse.redirect(
+            new URL("/dashboard/accounts?error=monzo_pending_approval", APP_URL)
           );
         }
+
+        return NextResponse.redirect(
+          new URL(
+            `/dashboard/accounts?monzo=pending_approval&pending_id=${pending.id}`,
+            APP_URL
+          )
+        );
       }
+      throw err;
     }
 
-    const { data: profile } = await supabase
-      .from("users_profile")
-      .select("onboarding_step")
-      .eq("id", userId)
-      .single();
+    console.log("[Monzo callback] Fetched accounts:", accounts?.length ?? 0);
 
-    if (profile && profile.onboarding_step === 1) {
-      await supabase
-        .from("users_profile")
-        .update({ onboarding_step: 2, updated_at: new Date().toISOString() })
-        .eq("id", userId);
-    }
+    await syncMonzoToDb(
+      {
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        expires_in: tokens.expires_in,
+      },
+      userId
+    );
 
+    console.log("[Monzo callback] Success, redirecting to dashboard");
     return NextResponse.redirect(
       new URL("/dashboard/accounts?monzo=connected", APP_URL)
     );
   } catch (err) {
-    console.error("Monzo OAuth callback error:", err);
+    if (err instanceof MonzoForbiddenError) {
+      console.warn("[Monzo callback] User must approve in Monzo app first");
+      return NextResponse.redirect(
+        new URL("/dashboard/accounts?error=monzo_pending_approval", APP_URL)
+      );
+    }
     const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[Monzo callback] Error:", message, err);
     return NextResponse.redirect(
       new URL(`/dashboard/accounts?error=${encodeURIComponent(message)}`, APP_URL)
     );
