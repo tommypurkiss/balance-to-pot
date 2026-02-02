@@ -27,6 +27,29 @@ export async function syncMonzoToDb(
     );
     const balance = balanceData?.balance ?? 0;
 
+    const monzoType = (account as { type?: string }).type ?? "";
+    const desc = (account.description ?? "").toLowerCase();
+    const accountType =
+      monzoType === "uk_retail" || monzoType === "uk_retail_joint"
+        ? "current"
+        : monzoType === "uk_rewards"
+          ? "rewards"
+          : monzoType === "uk_monzo_flex"
+            ? "flex"
+            : desc.includes("monzoflex")
+              ? "flex"
+              : desc.includes("rewardsoptin")
+                ? "rewards"
+                : "other";
+    console.log("[Monzo sync] Account:", {
+      account_id: account.id,
+      monzo_type: monzoType,
+      mapped_account_type: accountType,
+      description: account.description,
+      balance,
+      balanceFormatted: `£${(balance / 100).toFixed(2)}`,
+    });
+
     const { data: existingAccount } = await supabase
       .from("monzo_accounts")
       .select("id")
@@ -34,10 +57,6 @@ export async function syncMonzoToDb(
       .eq("user_id", userId)
       .single();
 
-    const accountType =
-      account.type === "uk_retail" || account.type === "uk_retail_joint"
-        ? "current"
-        : "other";
     const accountName = account.description || `${accountType} Account`;
 
     if (existingAccount) {

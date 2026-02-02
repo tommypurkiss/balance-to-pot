@@ -3,7 +3,7 @@ export interface MonzoAccount {
   user_id?: string;
   account_id: string;
   account_name: string;
-  account_type: "current" | "flex" | "savings" | string;
+  account_type: "current" | "flex" | "rewards" | "savings" | string;
   balance: number;
   connected_at: string;
   last_synced: string | null;

@@ -107,6 +107,13 @@ export async function GET(request: NextRequest) {
     }
 
     console.log("[Monzo callback] Fetched accounts:", accounts?.length ?? 0);
+    if (accounts?.length) {
+      console.log("[Monzo callback] Raw Monzo API accounts (id, type, description):", accounts.map((a) => ({
+        id: a.id,
+        type: a.type,
+        description: a.description,
+      })));
+    }
 
     await syncMonzoToDb(
       {

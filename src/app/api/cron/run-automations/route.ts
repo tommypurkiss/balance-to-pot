@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { depositIntoMonzoPot, refreshMonzoToken } from "@/lib/api/monzo";
+import {
+  depositIntoMonzoPot,
+  fetchMonzoBalance,
+  refreshMonzoToken,
+} from "@/lib/api/monzo";
 import { computeNextRunAt } from "@/lib/utils/nextRunAt";
 
 /**
@@ -98,6 +102,29 @@ export async function GET(request: NextRequest) {
             ).toISOString(),
           })
           .eq("id", pot.monzo_account_id);
+      }
+
+      const balanceData = await fetchMonzoBalance(accessToken, accountId);
+      const availableBalance = balanceData.balance ?? 0;
+      if (availableBalance < automation.amount) {
+        const nextRunAt = computeNextRunAt(
+          automation.frequency as "weekly" | "monthly",
+          automation.day_of_week,
+          automation.day_of_month
+        );
+        await supabase
+          .from("automations")
+          .update({
+            next_run_at: nextRunAt.toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", automation.id);
+        results.push({
+          id: automation.id,
+          success: false,
+          error: `Insufficient funds: ${availableBalance} available, ${automation.amount} required`,
+        });
+        continue;
       }
 
       const dedupeId = `automation-${automation.id}-${automation.next_run_at ?? now}`;

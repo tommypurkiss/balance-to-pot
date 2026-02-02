@@ -17,34 +17,33 @@ import {
 import type { MonzoAccount, MonzoPot } from "@/types/account";
 import { RefreshCw, Link2, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getEffectiveAccountType } from "@/lib/utils/monzoAccountType";
 
 function getFriendlyAccountName(account: MonzoAccount): string {
+  const type = getEffectiveAccountType(account);
+  if (type === "current") return "Current Account";
+  if (type === "flex") return "Monzo Flex";
+  if (type === "rewards") return "Rewards Cashback";
   const name = account.account_name;
-  const id = account.account_id;
-  if (id.startsWith("user_") && account.account_type === "current") {
-    return name && !name.startsWith("user_") ? name : "Current Account";
-  }
-  if (id.startsWith("monzoflex_")) return "Flex Account";
-  if (id.startsWith("rewardsoptin_")) return "Rewards";
   if (name && !/^[a-z]+_[a-zA-Z0-9]+$/.test(name)) return name;
-  return account.account_type === "current"
-    ? "Current Account"
-    : `${account.account_type} Account`;
+  return type !== "other" ? `${type} Account` : "Account";
 }
 
 interface MonzoAccountCardProps {
   account: MonzoAccount & { monzo_pots?: MonzoPot[] };
+  rewardsAccounts?: (MonzoAccount & { monzo_pots?: MonzoPot[] })[];
   onReconnect?: () => void;
 }
 
 export function MonzoAccountCard({
   account,
+  rewardsAccounts = [],
   onReconnect,
 }: MonzoAccountCardProps) {
   const daysUntilReconnect = getDaysUntilReconnection(account.reconnect_by);
   const reconnectStatus = getReconnectionStatus(daysUntilReconnect);
   const displayName = getFriendlyAccountName(account);
-  const isCurrentAccount = account.account_type === "current";
+  const isCurrentAccount = getEffectiveAccountType(account) === "current";
 
   const statusColors = {
     safe: "text-green-600 dark:text-green-400",
@@ -103,7 +102,7 @@ export function MonzoAccountCard({
               </span>
             </div>
 
-            {account.monzo_pots && account.monzo_pots.length > 0 && (
+            {(account.monzo_pots?.length ?? 0) > 0 && (
               <Accordion
                 type="single"
                 collapsible
@@ -112,12 +111,12 @@ export function MonzoAccountCard({
                 <AccordionItem value="pots" className="border-0">
                   <AccordionTrigger className="py-2 px-0 hover:no-underline">
                     <span className="text-sm font-medium text-muted-foreground">
-                      Pots ({account.monzo_pots.length})
+                      Pots ({account.monzo_pots!.length})
                     </span>
                   </AccordionTrigger>
                   <AccordionContent className="pt-2 pb-0">
                     <ul className="space-y-2">
-                      {account.monzo_pots.map((pot) => (
+                      {account.monzo_pots?.map((pot) => (
                         <li
                           key={pot.id}
                           className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
@@ -134,6 +133,27 @@ export function MonzoAccountCard({
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>
+            )}
+
+            {rewardsAccounts.length > 0 && (
+              <div className="pt-2 border-t border-border/50">
+                <p className="text-sm font-medium text-muted-foreground mb-2">
+                  Rewards
+                </p>
+                <ul className="space-y-2">
+                  {rewardsAccounts.map((ra) => (
+                    <li
+                      key={ra.id}
+                      className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                    >
+                      <span className="text-sm truncate">Rewards Cashback</span>
+                      <span className="text-sm font-semibold tabular-nums shrink-0">
+                        {formatCurrency(ra.balance)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
 
             <div className="flex gap-2 pt-2">

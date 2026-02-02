@@ -7,11 +7,17 @@ import { Navbar } from "@/components/layout/navbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { MonzoAccountCard } from "@/components/accounts/monzo-account-card";
+import { MonzoFlexCard } from "@/components/accounts/monzo-flex-card";
 import { CreditCardCard } from "@/components/accounts/credit-card-card";
 import { ConnectMonzoDialog } from "@/components/accounts/connect-monzo-dialog";
 import { ConnectCreditCardDialog } from "@/components/accounts/connect-credit-card-dialog";
 import { useMonzoAccounts } from "@/hooks/useAccounts";
 import { useCreditCards } from "@/hooks/useCreditCards";
+import {
+  isMainAccount,
+  isFlexAccount,
+  isRewardsAccount,
+} from "@/lib/utils/monzoAccountType";
 import { CreditCard, Loader2, Wallet } from "lucide-react";
 
 const POLL_INTERVAL_MS = 5000;
@@ -35,6 +41,28 @@ export function AccountsPage() {
     isLoading: creditCardsLoading,
     refetch: refetchCreditCards,
   } = useCreditCards();
+
+  const mainAccounts = monzoAccounts.filter(isMainAccount);
+  const flexAccounts = monzoAccounts.filter(isFlexAccount);
+  const rewardsAccounts = monzoAccounts.filter(isRewardsAccount);
+
+  useEffect(() => {
+    if (monzoAccounts.length > 0) {
+      console.log(
+        "[Accounts] Monzo accounts (from DB) – use these for account_id detection:",
+        monzoAccounts.map((a) => ({
+          id: a.id,
+          account_id: a.account_id,
+          account_type: a.account_type,
+          account_name: a.account_name,
+          balance: a.balance,
+          balanceFormatted: `£${(a.balance / 100).toFixed(2)}`,
+          connected_at: a.connected_at,
+          last_synced: a.last_synced,
+        }))
+      );
+    }
+  }, [monzoAccounts]);
 
   const monzoConnected = searchParams?.get("monzo") === "connected";
   const truelayerConnected = searchParams?.get("truelayer") === "connected";
@@ -333,7 +361,9 @@ export function AccountsPage() {
                   </Button>
                 </CardContent>
               </Card>
-            ) : monzoAccounts.length === 0 ? (
+            ) : mainAccounts.length === 0 &&
+              flexAccounts.length === 0 &&
+              rewardsAccounts.length === 0 ? (
               <Card className="border-dashed">
                 <CardContent className="pt-12 pb-12 flex flex-col items-center justify-center text-center">
                   <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
@@ -354,10 +384,11 @@ export function AccountsPage() {
               </Card>
             ) : (
               <div className="grid gap-5 md:grid-cols-2">
-                {monzoAccounts.map((account) => (
+                {mainAccounts.map((account, i) => (
                   <MonzoAccountCard
                     key={account.id}
                     account={account}
+                    rewardsAccounts={i === 0 ? rewardsAccounts : []}
                     onReconnect={() => setConnectDialogOpen(true)}
                   />
                 ))}
@@ -392,7 +423,7 @@ export function AccountsPage() {
                   </Card>
                 ))}
               </div>
-            ) : creditCards.length === 0 ? (
+            ) : creditCards.length === 0 && flexAccounts.length === 0 ? (
               <Card className="border-dashed">
                 <CardContent className="pt-6 pb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div className="flex items-center gap-3">
@@ -417,6 +448,9 @@ export function AccountsPage() {
               </Card>
             ) : (
               <div className="grid gap-5 md:grid-cols-2">
+                {flexAccounts.map((account) => (
+                  <MonzoFlexCard key={account.id} account={account} />
+                ))}
                 {creditCards.map((card) => (
                   <CreditCardCard key={card.id} card={card} />
                 ))}
