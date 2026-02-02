@@ -16,14 +16,7 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state");
   const error = searchParams.get("error");
 
-  console.log("[TrueLayer callback] Received:", {
-    hasCode: !!code,
-    hasState: !!state,
-    error: error ?? null,
-  });
-
   if (error) {
-    console.log("[TrueLayer callback] OAuth error from TrueLayer:", error);
     return NextResponse.redirect(
       new URL(
         `/dashboard/accounts?error=${encodeURIComponent(error)}`,
@@ -33,7 +26,6 @@ export async function GET(request: NextRequest) {
   }
 
   if (!code || !state) {
-    console.warn("[TrueLayer callback] Missing code or state");
     return NextResponse.redirect(
       new URL("/dashboard/accounts?error=missing_params", APP_URL)
     );
@@ -44,11 +36,6 @@ export async function GET(request: NextRequest) {
   const userId = cookieStore.get("truelayer_oauth_user")?.value;
 
   if (!storedState || state !== storedState || !userId) {
-    console.warn("[TrueLayer callback] Invalid state or missing user:", {
-      hasStoredState: !!storedState,
-      stateMatch: state === storedState,
-      hasUserId: !!userId,
-    });
     return NextResponse.redirect(
       new URL("/dashboard/accounts?error=invalid_state", APP_URL)
     );
@@ -62,7 +49,6 @@ export async function GET(request: NextRequest) {
     `${APP_URL}/api/auth/truelayer/callback`;
 
   try {
-    console.log("[TrueLayer callback] Exchanging code for tokens...");
     const tokens = await exchangeTrueLayerCode(code, redirectUri);
     const accessToken = tokens.access_token;
     const refreshToken = tokens.refresh_token;
@@ -71,9 +57,7 @@ export async function GET(request: NextRequest) {
       throw new Error("No refresh token - ensure offline_access scope");
     }
 
-    console.log("[TrueLayer callback] Fetching cards...");
     const { cards, rawResponse } = await fetchTrueLayerCards(accessToken);
-    console.log("[TrueLayer callback] Storing", cards.length, "card(s)");
     const reconnectBy = getReconnectByDate();
     const supabase = createAdminClient();
 
@@ -155,8 +139,6 @@ export async function GET(request: NextRequest) {
         }
       }
     }
-
-    console.log("[TrueLayer callback] Success, redirecting to accounts");
 
     const isDev = process.env.NODE_ENV === "development";
     const rawObj =

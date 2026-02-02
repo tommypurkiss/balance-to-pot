@@ -33,6 +33,5 @@ export async function GET() {
   });
 
   const authUrl = getTrueLayerAuthUrl(state);
-  console.log("[TrueLayer connect] Redirecting to TrueLayer OAuth");
   return NextResponse.redirect(authUrl);
 }

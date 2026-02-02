@@ -16,8 +16,6 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state");
   const error = searchParams.get("error");
 
-  console.log("[Monzo callback] Received:", { hasCode: !!code, hasState: !!state, error });
-
   if (error) {
     console.error("[Monzo callback] OAuth error:", error);
     return NextResponse.redirect(
@@ -36,13 +34,6 @@ export async function GET(request: NextRequest) {
   const storedState = cookieStore.get("monzo_oauth_state")?.value;
   const userId = cookieStore.get("monzo_oauth_user")?.value;
 
-  console.log("[Monzo callback] Cookies:", {
-    hasStoredState: !!storedState,
-    stateMatch: state === storedState,
-    hasUserId: !!userId,
-    userId: userId?.slice(0, 8) + "...",
-  });
-
   if (!storedState || state !== storedState || !userId) {
     console.error("[Monzo callback] Invalid state or missing userId");
     return NextResponse.redirect(
@@ -60,7 +51,6 @@ export async function GET(request: NextRequest) {
     `${APP_URL}/api/auth/monzo/callback`;
 
   try {
-    console.log("[Monzo callback] Exchanging code for tokens...");
     const tokens = await exchangeMonzoCode(code, redirectUri);
     const accessToken = tokens.access_token;
     const refreshToken = tokens.refresh_token;
@@ -68,15 +58,12 @@ export async function GET(request: NextRequest) {
     if (!refreshToken) {
       throw new Error("No refresh token - ensure Monzo client is confidential");
     }
-    console.log("[Monzo callback] Token exchange success");
-
     let accounts;
     try {
       const result = await fetchMonzoAccounts(accessToken);
       accounts = result.accounts;
     } catch (err) {
       if (err instanceof MonzoForbiddenError) {
-        console.log("[Monzo callback] 403 - storing tokens for pending approval flow");
         const supabase = createAdminClient();
         const { data: pending, error: insertError } = await supabase
           .from("monzo_pending_approvals")
@@ -106,15 +93,6 @@ export async function GET(request: NextRequest) {
       throw err;
     }
 
-    console.log("[Monzo callback] Fetched accounts:", accounts?.length ?? 0);
-    if (accounts?.length) {
-      console.log("[Monzo callback] Raw Monzo API accounts (id, type, description):", accounts.map((a) => ({
-        id: a.id,
-        type: a.type,
-        description: a.description,
-      })));
-    }
-
     await syncMonzoToDb(
       {
         access_token: accessToken,
@@ -124,13 +102,11 @@ export async function GET(request: NextRequest) {
       userId
     );
 
-    console.log("[Monzo callback] Success, redirecting to dashboard");
     return NextResponse.redirect(
       new URL("/dashboard/accounts?monzo=connected", APP_URL)
     );
   } catch (err) {
     if (err instanceof MonzoForbiddenError) {
-      console.warn("[Monzo callback] User must approve in Monzo app first");
       return NextResponse.redirect(
         new URL("/dashboard/accounts?error=monzo_pending_approval", APP_URL)
       );

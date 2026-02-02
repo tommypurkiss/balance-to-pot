@@ -41,15 +41,6 @@ export async function syncMonzoToDb(
               : desc.includes("rewardsoptin")
                 ? "rewards"
                 : "other";
-    console.log("[Monzo sync] Account:", {
-      account_id: account.id,
-      monzo_type: monzoType,
-      mapped_account_type: accountType,
-      description: account.description,
-      balance,
-      balanceFormatted: `£${(balance / 100).toFixed(2)}`,
-    });
-
     const { data: existingAccount } = await supabase
       .from("monzo_accounts")
       .select("id")

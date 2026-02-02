@@ -84,7 +84,6 @@ export async function exchangeTrueLayerCode(
   }
 
   const tokens = await response.json();
-  console.log("[TrueLayer] Token exchange success");
   return tokens;
 }
 
@@ -155,7 +154,6 @@ export async function fetchTrueLayerCards(
     });
   }
 
-  console.log("[TrueLayer] Fetched cards:", cardsArray.length, "card(s)");
   return { cards: cardsArray, rawResponse: data };
 }
 

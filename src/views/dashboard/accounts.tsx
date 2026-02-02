@@ -46,24 +46,6 @@ export function AccountsPage() {
   const flexAccounts = monzoAccounts.filter(isFlexAccount);
   const rewardsAccounts = monzoAccounts.filter(isRewardsAccount);
 
-  useEffect(() => {
-    if (monzoAccounts.length > 0) {
-      console.log(
-        "[Accounts] Monzo accounts (from DB) – use these for account_id detection:",
-        monzoAccounts.map((a) => ({
-          id: a.id,
-          account_id: a.account_id,
-          account_type: a.account_type,
-          account_name: a.account_name,
-          balance: a.balance,
-          balanceFormatted: `£${(a.balance / 100).toFixed(2)}`,
-          connected_at: a.connected_at,
-          last_synced: a.last_synced,
-        }))
-      );
-    }
-  }, [monzoAccounts]);
-
   const monzoConnected = searchParams?.get("monzo") === "connected";
   const truelayerConnected = searchParams?.get("truelayer") === "connected";
   const monzoPendingApproval =
