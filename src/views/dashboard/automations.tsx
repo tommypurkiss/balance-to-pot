@@ -58,6 +58,7 @@ function getCardName(
 
 export function AutomationsPage() {
   const [createOpen, setCreateOpen] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [form, setForm] = useState<
     CreateAutomationInput & { amountPounds: string }
   >({
@@ -83,6 +84,7 @@ export function AutomationsPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    setCreateError(null);
     const amountPennies = Math.round(
       parseFloat(form.amountPounds || "0") * 100
     );
@@ -110,7 +112,9 @@ export function AutomationsPage() {
         day_of_month: 1,
       });
     } catch (err) {
-      console.error(err);
+      setCreateError(
+        err instanceof Error ? err.message : "Failed to create automation"
+      );
     }
   };
 
@@ -197,8 +201,7 @@ export function AutomationsPage() {
               <h3 className="font-semibold text-lg mb-2">No automations yet</h3>
               <p className="text-muted-foreground mb-6 max-w-sm">
                 Create an automation to transfer money from a credit card to a
-                Monzo pot on a schedule. Connect a credit card (Phase 3) to
-                activate.
+                Monzo pot on a schedule. Connect a credit card to activate.
               </p>
               <Button
                 onClick={() => setCreateOpen(true)}
@@ -301,7 +304,13 @@ export function AutomationsPage() {
         </div>
       </main>
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open) setCreateError(null);
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Create automation</DialogTitle>
@@ -310,6 +319,11 @@ export function AutomationsPage() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreate} className="space-y-4">
+            {createError && (
+              <div className="p-3 rounded-lg text-sm bg-destructive/10 text-destructive">
+                {createError}
+              </div>
+            )}
             <div>
               <Label htmlFor="name">Name</Label>
               <Input

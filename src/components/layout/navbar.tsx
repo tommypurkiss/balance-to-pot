@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { Menu, LogOut, LayoutDashboard } from "lucide-react";
-import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
+import { Menu, LogOut, LayoutDashboard, Wallet, Zap } from "lucide-react";
+import { useState } from "react";
+import { useAuth } from "@/contexts/auth-context";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -19,28 +18,12 @@ const navLinks = [
 
 export function Navbar() {
   const router = useRouter();
+  const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    const supabase = createClient();
-
-    supabase.auth.getUser().then(({ data: { user: currentUser } }) => {
-      setUser(currentUser);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+  const { user, isLoading, signOut } = useAuth();
 
   const handleSignOut = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    await signOut();
     router.push("/");
     router.refresh();
   };
@@ -55,8 +38,8 @@ export function Navbar() {
           <span className="text-primary">PotSaver</span>
         </Link>
 
-        {/* Desktop navigation - only show when logged out */}
-        {!user && (
+        {/* Desktop navigation - only show when logged out (auth context prevents flash) */}
+        {!isLoading && !user && (
           <div className="hidden md:flex items-center gap-6">
             {navLinks.map((link) => (
               <Link
@@ -72,12 +55,49 @@ export function Navbar() {
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          {user ? (
+          {isLoading ? (
+            <div className="h-8 w-24 animate-pulse rounded-md bg-muted" />
+          ) : user ? (
             <>
-              <Button variant="ghost" size="sm" asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+                className={pathname === "/dashboard" ? "bg-accent" : undefined}
+              >
                 <Link href="/dashboard">
                   <LayoutDashboard className="h-4 w-4 mr-1" />
                   Dashboard
+                </Link>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+                className={
+                  pathname?.startsWith("/dashboard/accounts")
+                    ? "bg-accent"
+                    : undefined
+                }
+              >
+                <Link href="/dashboard/accounts">
+                  <Wallet className="h-4 w-4 mr-1" />
+                  Accounts
+                </Link>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+                className={
+                  pathname?.startsWith("/dashboard/automations")
+                    ? "bg-accent"
+                    : undefined
+                }
+              >
+                <Link href="/dashboard/automations">
+                  <Zap className="h-4 w-4 mr-1" />
+                  Automations
                 </Link>
               </Button>
               <Button
@@ -111,7 +131,8 @@ export function Navbar() {
       {mobileMenuOpen && (
         <div className="md:hidden border-t bg-background">
           <div className="container mx-auto flex flex-col gap-2 py-4 px-4">
-            {!user &&
+            {!isLoading &&
+              !user &&
               navLinks.map((link) => (
                 <Link
                   key={link.href}
@@ -130,6 +151,20 @@ export function Navbar() {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Dashboard
+                </Link>
+                <Link
+                  href="/dashboard/accounts"
+                  className="py-2 text-sm font-medium"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Accounts
+                </Link>
+                <Link
+                  href="/dashboard/automations"
+                  className="py-2 text-sm font-medium"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Automations
                 </Link>
                 <Button
                   variant="outline"

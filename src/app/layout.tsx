@@ -17,6 +17,13 @@ export const metadata: Metadata = {
   title: "PotSaver - Automate Your Savings",
   description:
     "Automatically transfer credit card balances to your Monzo pots. Connect Monzo and credit cards, set up transfers, and save smarter.",
+  manifest: "/manifest.webmanifest",
+  themeColor: "#ff5a5f",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "PotSaver",
+  },
 };
 
 export default function RootLayout({
